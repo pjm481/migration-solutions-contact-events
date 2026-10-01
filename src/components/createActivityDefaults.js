@@ -1,7 +1,11 @@
 import { getDurationOptionsFromConfig } from "../services/picklistConfigService.js";
 
 export const getCreateActivityDefaults = (picklistConfig) => {
-  const duration = getDurationOptionsFromConfig(picklistConfig)[0] ?? "";
+  const durations = getDurationOptionsFromConfig(picklistConfig).filter(
+    (duration) => duration > 0
+  );
+  const duration =
+    durations.find((duration) => duration === 60) ?? durations[0] ?? "";
 
   return {
     Type_of_Activity: "",

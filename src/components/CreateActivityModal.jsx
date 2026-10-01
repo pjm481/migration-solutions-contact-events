@@ -24,6 +24,7 @@ import {
   getDurationOptionsFromConfig,
 } from "../services/picklistConfigService.js";
 import { getCreateActivityDefaults } from "./createActivityDefaults.js";
+import { isActivityTimeRangeValid } from "./activityTiming.js";
 dayjs.extend(utc);  
 dayjs.extend(timezone);
 
@@ -292,6 +293,7 @@ const CreateActivityModal = ({
     const durationIsConfigured =
       Duration_Min !== "" &&
       Duration_Min != null &&
+      Number(Duration_Min) > 0 &&
       configuredDurations.some(
         (option) => Number(option) === Number(Duration_Min)
       );
@@ -300,8 +302,7 @@ const CreateActivityModal = ({
     // leaves creation invalid instead of inventing a hard-coded duration.
     return (
       Type_of_Activity &&
-      start &&
-      end &&
+      isActivityTimeRangeValid(start, end) &&
       durationIsConfigured &&
       Event_Title &&
       scheduledWith.length > 0
@@ -346,6 +347,7 @@ const CreateActivityModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false); // State for form submission
 
   const handleSubmit = async () => {
+    if (!isFormValid() || isSubmitting) return;
     setIsSubmitting(true); // Start the submission process
     let success = true;
   
@@ -510,7 +512,7 @@ const CreateActivityModal = ({
               variant="contained"
               color="secondary"
               onClick={handleSubmit}
-              disabled={!isFormValid()} // Disable button if form is not valid
+              disabled={!isFormValid() || isSubmitting}
             >
               Ok
             </Button>
@@ -589,7 +591,7 @@ const CreateActivityModal = ({
             variant="contained"
             color="secondary"
             onClick={handleSubmit}
-            // disabled={!isFormValid()} // Disable button if form is not valid
+            disabled={!isFormValid() || isSubmitting}
           >
             Ok
           </Button>

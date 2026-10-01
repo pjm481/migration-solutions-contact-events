@@ -28,7 +28,11 @@ import {
   getTypeOptionsFromConfig,
   normalizeDurationValue,
 } from "../services/picklistConfigService.js";
-import { getActivityTypeSelection } from "./createActivityDefaults.js";
+import {
+  getActivityTypeSelection,
+  getCreateActivityDefaults,
+} from "./createActivityDefaults.js";
+import { getActivityDateTimes } from "./activityTiming.js";
 
 const commonTextStyles = {
   fontSize: "9pt",
@@ -151,6 +155,7 @@ const FirstComponent = ({
     // console.log(formatType,durationInMinutes)
     if (formatType === "Duration_Min") {
       let date = new Date(formData.start);
+      if (!Number.isFinite(date.getTime())) return;
 
       date.setMinutes(date.getMinutes() + parseInt(durationInMinutes, 10));
       const localDate = new Date(
@@ -181,22 +186,18 @@ const FirstComponent = ({
 
   useEffect(() => {
     const initializeDefaultValues = () => {
-      const now = new Date();
-      const oneHourLater = new Date(now);
-      const defaultDuration = durations[0] ?? "";
-      const defaultDurationMinutes =
-        defaultDuration === "" ? Number.NaN : Number(defaultDuration);
-      oneHourLater.setMinutes(
-        now.getMinutes() +
-          (Number.isFinite(defaultDurationMinutes) ? defaultDurationMinutes : 60)
+      const { duration: defaultDuration } = getCreateActivityDefaults(picklistConfig);
+      const { start, end } = getActivityDateTimes(
+        new Date(),
+        defaultDuration
       );
 
-      handleInputChange("start", now.toISOString());
-      handleInputChange("end", oneHourLater.toISOString());
+      handleInputChange("start", start.toISOString());
+      handleInputChange("end", end.toISOString());
       handleInputChange("duration", defaultDuration);
       handleInputChange("Duration_Min", defaultDuration);
-      setStartValue(dayjs(now));
-      setEndValue(dayjs(oneHourLater));
+      setStartValue(dayjs(start));
+      setEndValue(dayjs(end));
     };
 
     const initializeSelectedRowData = () => {
@@ -433,10 +434,13 @@ const FirstComponent = ({
   }
 
   const handleEndDateChange = (e) => {
-    console.log("fahim", e.$d);
-    handleInputChange("end", e.$d);
-    console.log("end", e.value);
-    const getDiffInMinutes = getTimeDifference(e.$d);
+    setEndValue(e);
+    if (!e?.isValid()) {
+      handleInputChange("end", "");
+      return;
+    }
+    handleInputChange("end", e.toDate());
+    const getDiffInMinutes = getTimeDifference(e.toDate());
     const allowedDuration = configuredDuration(getDiffInMinutes);
     handleInputChange("Duration_Min", allowedDuration);
     handleInputChange("duration", allowedDuration);
@@ -505,36 +509,27 @@ const FirstComponent = ({
               disabled={formData.Banner ? true : false}
               slotProps={{ textField: { size: "small", fullWidth: true } }}
               onChange={(e) => {
-                const configuredDuration =
-                  formData.Duration_Min === "" ||
-                  formData.Duration_Min === null ||
-                  formData.Duration_Min === undefined
-                    ? Number.NaN
-                    : Number(formData.Duration_Min);
-                const durationMinutes = Number.isFinite(configuredDuration)
-                  ? configuredDuration
-                  : Number(durations[0]);
-                const addedHour = new Date(
-                  dayjs(e.$d)
-                    .add(
-                      Number.isFinite(durationMinutes) ? durationMinutes : 60,
-                      "minute"
-                    )
-                    .toDate()
+                setStartValue(e);
+                if (!e?.isValid()) {
+                  handleInputChange("start", "");
+                  return;
+                }
+                const selectedDuration = Number(
+                  normalizeDurationValue(formData.Duration_Min)
                 );
-                handleInputChange("start", e.$d);
-                handleInputChange("end", addedHour);
-                setEndValue(dayjs(addedHour));
-                handleInputChange(
-                  "Duration_Min",
-                  Number.isFinite(durationMinutes) ? durationMinutes : ""
+                const durationMinutes =
+                  Number.isFinite(selectedDuration) && selectedDuration > 0
+                    ? selectedDuration
+                    : getCreateActivityDefaults(picklistConfig).duration;
+                const { start, end } = getActivityDateTimes(
+                  e.toDate(),
+                  durationMinutes
                 );
-                handleInputChange(
-                  "duration",
-                  Number.isFinite(durationMinutes) ? durationMinutes : ""
-                );
-                console.log(e.$d);
-                console.log(addedHour);
+                handleInputChange("start", start);
+                handleInputChange("end", end);
+                setEndValue(dayjs(end));
+                handleInputChange("Duration_Min", durationMinutes);
+                handleInputChange("duration", durationMinutes);
               }}
               sx={{ width: "100%", "& input": { py: 0 } }}
               renderInput={(params) => <TextField {...params} size="small" />}
