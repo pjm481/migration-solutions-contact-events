@@ -16,6 +16,7 @@ function App() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true); // Add loading state
   const [filterDate, setFilterDate] = useState("All");
+  const [customDateRange, setCustomDateRange] = useState(null);
   const [cache, setCache] = useState({}); // Cache to store fetched results
   const [recentColors, setRecentColor] = useState(""); // Move this to context
   const [loggedInUser, setLoggedInUser] = useState(null);
@@ -120,23 +121,30 @@ function App() {
           // // Set the events state
           setEvents(allMeetingsData);
 
-          // Get organization variable
-          await ZOHO.CRM.API.getOrgVariable("recent_colors").then(function (
-            data
-          ) {
-            // Parse the string to an array and store it in the state
-            const colorsArray = JSON.parse(data?.Success?.Content || "[]");
+          // Get organization variable without blocking the independent users request
+          try {
+            const colorsResponse = await ZOHO.CRM.API.getOrgVariable(
+              "recent_colors"
+            );
+            const colorsArray = JSON.parse(
+              colorsResponse?.Success?.Content || "[]"
+            );
             setRecentColor(colorsArray);
-          });
+          } catch (colorError) {
+            console.error("Error fetching recent colors metadata", colorError);
+          }
 
           // Get users data
-          const usersResponse = await ZOHO.CRM.API.getAllRecords({
-            Entity: "users",
-            sort_order: "asc",
-            per_page: 100,
-            page: 1,
-          });
-          setUsers(usersResponse.users); // Set the users in the state
+          try {
+            const usersResponse = await ZOHO.CRM.API.getAllUsers({
+              Type: "AllUsers",
+              per_page: 200,
+              page: 1,
+            });
+            setUsers(usersResponse?.users || []);
+          } catch (usersError) {
+            console.error("Error fetching users metadata", usersError);
+          }
 
           setLoading(false); // Ensure loading is turned off when the data fetching is complete
         } catch (error) {
@@ -183,6 +191,8 @@ function App() {
           users={users}
           filterDate={filterDate}
           setFilterDate={setFilterDate}
+          customDateRange={customDateRange}
+          setCustomDateRange={setCustomDateRange}
           recentColors={recentColors}
           setRecentColor={setRecentColor}
           loggedInUser={loggedInUser}
